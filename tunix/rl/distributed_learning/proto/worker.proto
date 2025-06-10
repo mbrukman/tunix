@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package tunix.rl.distributed_learning;
+
+// Training service
+service TrainWorker {
+  rpc TrainStep(TrainRequest) returns (TrainResponse) {}
+  rpc GetPerTokenLogps(GetPerTokenLogpsRequest) returns (GetPerTokenLogpsResponse) {}
+  rpc MaybeRestore(MaybeRestoreRequest) returns (MaybeRestoreResponse) {}
+  rpc Eval(EvalRequest) returns (EvalResponse) {}
+}
+
+// Sampling service
+service RolloutWorker {
+  rpc Generate(GenerateRequest) returns (GenerateResponse) {}
+}
+
+message DeviceArrayPayload {
+  bytes array_data = 1;        // raw bytes of the NumPy/Jax array
+  repeated int32 shape = 2;    // shape for validation
+  string dtype = 3;            // dtype string like "float32", "int64"
+}
+
+// Training request/response messages
+message TrainRequest {
+  DeviceArrayPayload prompt_ids = 1;
+  DeviceArrayPayload prompt_mask = 2;
+  DeviceArrayPayload completion_ids = 3;
+  DeviceArrayPayload completion_mask = 4;
+  DeviceArrayPayload advantages = 5;
+  DeviceArrayPayload ref_per_token_logps = 6;
+  DeviceArrayPayload old_per_token_logps = 7;
+}
+
+message TrainResponse {
+  float loss = 1;
+  map<string, float> aux = 2;
+  bytes model_state = 3;  // Serialized model state
+}
+
+message GetPerTokenLogpsRequest {
+  DeviceArrayPayload prompts = 1;
+  DeviceArrayPayload completions = 2;
+}
+
+message GetPerTokenLogpsResponse {
+  DeviceArrayPayload ref_per_token_logps = 1;
+  DeviceArrayPayload old_per_token_logps = 2;
+  DeviceArrayPayload completion_mask = 3;
+  DeviceArrayPayload prompt_completion_mask = 4;
+}
+
+// Request to maybe restore model parameters from the latest checkpoint.
+message MaybeRestoreRequest {}
+
+// Response with the number of training steps completed after restore.
+message MaybeRestoreResponse {
+  int32 steps_completed = 1;
+}
+
+// Request to run evaluation on a given example.
+message EvalRequest {
+  DeviceArrayPayload prompt_ids = 1;
+  DeviceArrayPayload prompt_mask = 2;
+  DeviceArrayPayload completion_ids = 3;
+  DeviceArrayPayload completion_mask = 4;
+  DeviceArrayPayload advantages = 5;
+  DeviceArrayPayload ref_per_token_logps = 6;
+  DeviceArrayPayload old_per_token_logps = 7;
+}
+
+// Response with loss and auxiliary metrics.
+message EvalResponse {
+  float loss = 1;
+  map<string, float> aux = 2;
+}
+
+// Rollout request/response messages
+message GenerateRequest {
+  DeviceArrayPayload prompts = 1;  // Input token IDs as DeviceArrayPayload
+  int32 max_tokens = 2;            // Maximum number of tokens to generate
+  float temperature = 3;           // Sampling temperature
+  float top_p = 4;                 // Nucleus sampling parameter
+  int32 top_k = 5;                 // Top-k sampling parameter
+}
+
+message GenerateResponse {
+  repeated string completions = 1;  // Generated completions
+}
+
+message SyncWeightsRequest {
+}
+
+message SyncWeightsResponse {
+  bool success = 1;  // Whether the sync was successful
+}
