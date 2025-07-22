@@ -130,6 +130,20 @@ class ModelConfig:
     )
 
   @classmethod
+  def qwen3_32_b(cls):  # qwen32B
+    return cls(
+        num_layers=64,
+        vocab_size=151936,
+        embed_dim=5120,
+        hidden_dim=25600,
+        num_heads=64,
+        head_dim=128,
+        num_kv_heads=8,
+        norm_eps=1e-06,
+        rope_theta=1_000_000,
+    )
+
+  @classmethod
   def qwen3_30_b(cls):  # qwen3-30B
     return cls(
         num_layers=48,

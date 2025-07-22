@@ -167,7 +167,7 @@ def _stoi(s):
   except ValueError:
     return s
 
-
+# Note: This doesn't work with pathways!!!
 def create_model_from_safe_tensors(
     file_dir: str,
     config: model_lib.ModelConfig,
@@ -180,8 +180,9 @@ def create_model_from_safe_tensors(
     raise ValueError(f"No safetensors found in {file_dir}")
 
   tensor_dict = {}
-  for f in tqdm.tqdm(files):
-    tensor_dict |= safetensors.load_file(f)
+  with jax.default_device(jax.devices("cpu")[0]):
+    for f in tqdm.tqdm(files):
+      tensor_dict |= safetensors.load_file(f)
 
   if config.num_experts is not None:
     tensor_dict = _stack_experts(tensor_dict)
