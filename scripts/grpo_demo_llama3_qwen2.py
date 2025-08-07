@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Demo script for GRPO with Llama3 model.
+r"""Demo script for GRPO with Llama3 model.
 
 This script demonstrates how to run GRPO with a Llama3 model. It includes
 training, evaluation, and inference.
+
+Example usage:
+python3 grpo_demo_llama3_qwen2.py --root-dir=/path/to/root_dir \
+--model-version=Qwen/Qwen2.5-0.5B
+
 """
 
 import argparse
@@ -38,7 +43,9 @@ import qwix
 from tqdm.auto import tqdm
 import transformers
 from tunix.models.llama3 import model as llama_lib
-from tunix.models.llama3 import params
+from tunix.models.llama3 import params as llama_params
+from tunix.models.qwen2 import model as qwen2_lib
+from tunix.models.qwen2 import params as qwen2_params
 from tunix.rl import rl_cluster as rl_cluster_lib
 from tunix.rl import utils
 from tunix.rl.grpo import grpo_learner
@@ -72,7 +79,8 @@ parser.add_argument(
     "--model-version",
     type=str,
     # default="meta-llama/Llama-3.1-8B-Instruct"
-    default="meta-llama/Llama-3.2-3B-Instruct",
+    # default="meta-llama/Llama-3.2-3B-Instruct",
+    default="meta-llama/Llama-3.2-1B-Instruct",
     required=False,
     help="The model version to use.",
 )
@@ -146,7 +154,7 @@ EPSILON = 0.2
 
 # ====== Training ======
 # 2 is the max we can do on v5e-8 with llama3 8B model.
-BATCH_SIZE = 2
+BATCH_SIZE = 4
 # To speed up for quick workflow validation, we can change NUM_BATCHES to e.g. 2
 NUM_BATCHES = 1869
 # Keep `NUM_TEST_BATCHES` low so that evaluation runs quickly. It can be
@@ -353,12 +361,21 @@ MODEL_CONFIG = {
     "meta-llama/Llama-3.2-1B-Instruct": llama_lib.ModelConfig.llama3_2_1b,
     "meta-llama/Llama-3.2-3B-Instruct": llama_lib.ModelConfig.llama3_2_3b,
     "meta-llama/Llama-3.1-8B-Instruct": llama_lib.ModelConfig.llama3_1_8b,
+    "Qwen/Qwen2.5-0.5B": qwen2_lib.ModelConfig.qwen2_5_0_5_b,
 }
 
 
-def get_llama_model(ckpt_path, model_mesh, ref_model_config):
-  return params.create_model_from_safe_tensors(
-      ckpt_path, ref_model_config, model_mesh
+def get_trainer_model(ckpt_path, model_mesh, ref_model_config):
+  if "Llama" in HF_MODEL_VERSION:
+    return llama_params.create_model_from_safe_tensors(
+        ckpt_path, ref_model_config, model_mesh
+    )
+  elif "Qwen2.5" in HF_MODEL_VERSION:
+    return qwen2_params.create_model_from_safe_tensors(
+        ckpt_path, ref_model_config, model_mesh
+    )
+  raise NotImplementedError(
+      f"{HF_MODEL_VERSION} tensor loading not implemented"
   )
 
 
@@ -366,7 +383,7 @@ def get_ref_model():
   ckpt_path = os.path.join(NNX_CKPT_DIR)
   model_mesh = jax.make_mesh(*MESH)
   ref_model_config = MODEL_CONFIG[HF_MODEL_VERSION]()
-  model = get_llama_model(ckpt_path, model_mesh, ref_model_config)
+  model = get_trainer_model(ckpt_path, model_mesh, ref_model_config)
   return model, model_mesh, ref_model_config
 
 
